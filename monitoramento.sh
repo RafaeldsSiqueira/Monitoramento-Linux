@@ -1,11 +1,15 @@
 #!/bin/bash
 
+#script do telegram
+BOT_SCRIPT="$(dirname "$0")/ bot_telegram.sh" #caminho relativo
+
+
 # Configurações Base
-SERVICO=()
+SERVICO=(nginx)
 LOG="/var/log/monitoramento.log"
-LIMITE_CPU=80
-LIMITE_MEMORIA=80
-LIMITE_DISCO=84
+LIMITE_CPU=5
+LIMITE_MEMORIA=5
+LIMITE_DISCO=5
 
 echo "[$(date '+%d/%m/%Y %H:%M:%S')] Inicio monitoramento" >> $LOG
 
@@ -40,3 +44,4 @@ fi
 echo "[$(date '+%d/%m/%Y %H:%M:%S')]
 Fim do monitoramento" >> $LOG
 echo "__________________________" >> $LOG
+
