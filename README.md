@@ -23,8 +23,8 @@ chmod +x bot_telegram.sh
 Poderá ser executado de maneira manual:
 ./monitoramento.sh
 
-Agendada utilizando cron a cada 5 minutos podendo agendar em menos tempo
-*/5**** /home/customização/monitoramento.sh
+Agendada utilizando cron a cada 10 minutos podendo agendar em menos tempo
+*/10**** /home/customização/monitoramento.sh
 
 
 
@@ -101,9 +101,9 @@ CHAT_ID="seu_chat_id_aqui"
 
 4. Execução automática com cron
 
-Exemplo para rodar a cada 5 minutos:
+Exemplo para rodar a cada 10 minutos:
 
-*/5 * * * * /caminho/completo/monitoramento.sh
+*/10 * * * * /home/usuario/customizacao/monitoramento.sh
 
 
 ---
@@ -114,8 +114,8 @@ Para alterar os serviços monitorados, edite a variável SERVICOS no monitoramen
 
 Os limites de CPU, memória e disco estão configurados no próprio script (LIMITE_CPU=80, etc.).
 
-O log de alertas fica registrado em: /var/log/monitor.log.
-
+O log de alertas fica registrado em: /home/usuario/logs/monitoramento.log
+Os logs podem ser direcionados para a pasta de preferencia
 
 
 ---
@@ -136,9 +136,13 @@ Salve no .env
 
 ✨ Exemplo de alerta enviado
 
-️ ALERTA: Serviço nginx inativo
-️ ALERTA: Uso de memória alto: 87%
+[06/06/2025 00:02:01] Inicio monitoramento
+[sex 06 jun 2025 00:02:02 -03] ALERTA: uso de CPU alto: 10%
+[sex 06 jun 2025 00:02:02 -03] ALERTA: Uso de memoria alto: 49%
+[sex 06 jun 2025 00:02:03 -03] ALERTA: uso de disco alto: 85%
+[06/06/2025 00:02:04] Fim do monitoramento
 
+OBS: podendo ser mas detalhado de acordo com a necessidade
 
 ---
 
