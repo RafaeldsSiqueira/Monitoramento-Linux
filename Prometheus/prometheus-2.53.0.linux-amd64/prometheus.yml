@@ -1,0 +1,36 @@
+# Configurações globais
+global:
+  # Define o intervalo de coleta para cada 15 segundos. O padrão é 1 minuto.
+  scrape_interval: 15s
+  # Avalia as regras de alerta a cada 15 segundos. O padrão é 1 minuto.
+  evaluation_interval: 15s
+
+# Configuração do Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        # Alvo do Alertmanager. 'localhost' é usado para o ambiente local.
+        - targets:
+            - 'localhost:9093'
+
+# Carrega as regras uma vez e as avalia periodicamente conforme o 'evaluation_interval'.
+rule_files:
+  - "regras.yml"
+  # - "primeiras_regras.yml"
+  # - "segundas_regras.yml"
+
+# Uma configuração de coleta (scrape) contendo os alvos a serem monitorados.
+scrape_configs:
+  # O nome do job é adicionado como uma label `job=<job_name>` para qualquer métrica coletada.
+
+  # Bloco de configuração para o job "prometheus".
+  # Este job coleta as métricas do próprio servidor Prometheus.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Bloco de configuração para o job "node_exporter".
+  # Este job coleta as métricas do sistema operacional (CPU, RAM, Disco) do nosso servidor.
+  - job_name: "node_exporter"
+    static_configs:
+      - targets: ["localhost:9100"]
