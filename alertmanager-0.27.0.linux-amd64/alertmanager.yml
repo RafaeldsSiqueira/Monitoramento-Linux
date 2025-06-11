@@ -1,0 +1,28 @@
+# alertmanager.yml
+global:
+  # Opcional: Define a URL da API do Telegram, útil se estiver usando um proxy.
+  # telegram_api_url: 'https://api.telegram.org'
+
+route:
+  # Rota padrão: para onde vão todos os alertas.
+  receiver: 'alertas-telegram'
+  # Agrupa os alertas por instância e nome do alerta para evitar spam.
+  group_by: ['instance', 'alertname']
+  # Espera 30s para ver se mais alertas do mesmo grupo chegam antes de enviar.
+  group_wait: 30s
+  # Se um alerta não for resolvido, espera 4h para enviar de novo.
+  repeat_interval: 10s
+
+receivers:
+  - name: 'alertas-telegram'
+    telegram_configs:
+      - bot_token_file: '/etc/alertmanagers/secrets/telegram_bot_token'
+        # Use o chat_id POSITIVO para seu chat privado
+        chat_id: 6851203827 # ATUALIZADO EM 11/06/2025
+        parse_mode: 'Markdown'
+        message: |
+          *{{ if eq .Status "firing" }}🔥 ALERTA DISPARANDO 🔥{{ else }}✅ ALERTA RESOLVIDO ✅{{ end }}*
+
+          *Alerta:* `{{ .CommonAnnotations.summary }}`
+          *Gravidade:* `{{ .CommonLabels.severity }}`
+          *Descrição:* {{ .CommonAnnotations.description }}
