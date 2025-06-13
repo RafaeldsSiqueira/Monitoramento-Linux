@@ -10,7 +10,7 @@ groups:
          severity: warning
        annotations:
          summary: "Uso alto de Cpu (instância{{ $labels.instance }})"
-         description:  "O Uso da CPU está em {{$value | printf \".2f\" }}% por mais de 5 minutos."
+         description: "🔥 O uso da CPU está em {{ $value | printf \"%.0f\" }}% há pelo menos 1 minuto."
 
       #Memoria RAM
 
@@ -21,7 +21,7 @@ groups:
          severity: critical  
        annotations:
         summary: "Memória RAM baixa (instância{{ $labels.instance }})"
-        description:  "Apena {{$value | printf \".2f\" }}% de memória RAM está disponível."
+        description: "O consumo de memória RAM atingiu {{ $value | printf \"%.0f\" }}%."
 
       #Disco
      - alert:  PoucoEspaçoEmDisco
@@ -31,4 +31,4 @@ groups:
         severity: critical  
        annotations:
         summary: "Pouco espaço em disco (instância{{ $labels.instance }})"
-        description:  "O disco raiz (/) tem apenas {{$value | printf \".2f\" }}% de espaço livre."
+        description: "💾 O disco raiz (/) está com {{ $value | printf \"%.0f\" }}% de uso."

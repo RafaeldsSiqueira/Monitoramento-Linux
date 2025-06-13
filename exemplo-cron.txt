@@ -1,4 +1,0 @@
-# Rodando a cada 10 minutos 
-*/10 * * * * /home/rafael/Moitoramento_Linux/monitoramento.sh
-
-                                                                                                                       

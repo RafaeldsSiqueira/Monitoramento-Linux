@@ -43,19 +43,20 @@ A primeira versão do projeto consistiu em um script Bash (monitoramento.sh) par
 
 Funcionalidades:
 
-Verificação de status de serviços (nginx, mysql).
+Monitoramento de Serviços: Verifica o status de serviços essenciais, configuráveis na variável SERVICOS=("nginx" "mysql") dentro do monitoramento.sh. Se um serviço listado parar, falhar ou for reiniciado, um alerta é imediatamente disparado para o Telegram.
 
-Medição de uso de CPU, Memória e Disco.
+Medição de Recursos: Acompanha o uso de CPU, Memória e Disco.
 
-Geração de logs locais.
+Geração de Logs: Cria um arquivo de log para registrar todos os eventos de alerta e a execução do script. O caminho do log é configurável através da variável LOG.
 
-Envio de alertas via um segundo script (bot_telegram.sh).
+Envio de Alertas: Utiliza um segundo script (bot_telegram.sh) para enviar as notificações.
 
 Execução: Agendada via cron para rodar periodicamente.
 
 Limitações: Sem dados históricos, alertas "barulhentos" para picos rápidos, configuração fixa no código.
 
 Estrutura do Projeto (v1)
+
 monitoramento-linux/
 ├── monitoramento.sh        # Script principal
 ├── bot_telegram.sh         # Script que envia mensagens para o Telegram
@@ -63,15 +64,26 @@ monitoramento-linux/
 └── README.md
 
 Como Usar (v1)
-Dê permissão de execução:
+
+1. Dê permissão de execução:
 
 chmod +x monitoramento.sh
 chmod +x bot_telegram.sh
 
-Configure o .env com as variáveis BOT_TOKEN e CHAT_ID. O script bot_telegram.sh foi configurado para ler este arquivo de forma segura.
+2. Configure o .env com as variáveis BOT_TOKEN e CHAT_ID. O script bot_telegram.sh foi configurado para ler este arquivo de forma segura.
 
-Execução automática com cron (exemplo para cada 10 minutos):
+3. Crie o diretório de Logs: O script precisa de um local para armazenar os logs. Antes de executar, certifique-se de que o diretório especificado na variável LOG do monitoramento.sh exista. Por exemplo, se LOG="/home/rafael/logs/monitoramento.log", crie a pasta logs:
 
+mkdir -p /home/rafael/logs
+
+4. Execução automática com cron (exemplo para cada 10 minutos):
+
+Para que o script rode de forma autônoma e contínua, ele pode ser adicionado ao crontab do sistema.
+
+# Abra o editor do crontab
+sudo crontab -e
+
+# Adicione a seguinte linha no final do arquivo para executar a cada 10 minutos
 */10 * * * * /caminho/completo/para/monitoramento.sh
 
 Evolução para a Stack Profissional (v2)
@@ -100,7 +112,11 @@ O Node Exporter expõe as métricas na porta 9100.
 curl http://localhost:9100/metrics
 
 Fase 2: Armazenamento e Processamento com Prometheus
-O Prometheus Server é o "cérebro" da operação, coletando e armazenando as métricas para consultas futuras.
+O Prometheus Server é o "cérebro" da operação. Sua função é coletar (fazer scrape) as métricas e armazená-las para consultas e análises futuras.
+
+Armazenamento Local com TSDB
+
+Diferente de sistemas que exigem um banco de dados externo, o Prometheus possui um banco de dados de séries temporais (TSDB) altamente eficiente, embutido e que armazena os dados localmente no disco do servidor. Ele é otimizado para lidar com o grande volume de dados de métricas com carimbo de tempo. Por padrão, o Prometheus retém os dados por 15 dias, o que o torna ideal para análise de tendências recentes e depuração de incidentes, justificando a ideia de ser um armazenamento "temporário" para dados de curto e médio prazo.
 
 1. Instalação:
 
@@ -135,6 +151,38 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9100"]
 
+3. Visualizando as Métricas Coletadas
+
+Na interface do Prometheus (Gráfico), é possível consultar e visualizar em tempo real qualquer uma das centenas de métricas coletadas pelo Node Exporter, provando que a coleta de dados está funcionando corretamente.
+
+![Gráfico de CPU no Prometheus](docs/imagens/Graficos_Prometheus/prometheus-grafico-cpu.png)
+
+![Gráfico de Memória Ativa](docs/imagens/Graficos_Prometheus/prometheus-grafico-memoria.png)
+
+![Gráfico de Disco no Prometheus](docs/imagens/Graficos_Prometheus/prometheus-grafico-disco.png)
+
+4. Escalando o Monitoramento para Múltiplos Servidores
+
+Uma das grandes vantagens do Prometheus é a capacidade de centralizar o monitoramento de múltiplos servidores. Para isso, basta adicionar novos alvos (targets) ao job do node_exporter.
+
+Pré-requisito: O Node Exporter deve estar instalado e em execução em cada novo servidor que você deseja monitorar.
+
+Exemplo de configuração no prometheus.yml:
+
+Basta adicionar o endereço IP e a porta de cada novo servidor à lista targets.
+
+scrape_configs:
+  # ... (outros jobs)
+
+  - job_name: "node_exporter"
+    static_configs:
+      - targets:
+          - "IP_DO_SERVIDOR_1:9100" # Servidor local ou primeiro servidor
+          - "IP_DO_SERVIDOR_2:9100" # Servidor de banco de dados
+          - "IP_DO_SERVIDOR_3:9100" # Servidor web
+
+Após reiniciar o Prometheus, ele começará a coletar métricas de todos os servidores listados.
+
 Fase 3: Definição de Alertas (Regras)
 Nesta fase, ensinamos o Prometheus a ser proativo. A base da lógica de monitoramento (verificar CPU, RAM e disco) é a mesma do script Bash, mas agora é implementada de forma muito mais poderosa e resiliente através de regras de alerta, definidas em um arquivo regras.yml.
 
@@ -159,34 +207,37 @@ description: O corpo da mensagem. Note o uso de {{ $value | printf "%.2f" }}: is
 groups:
   - name: AlertaServidor
     rules:
-      - alert: AltaCargaDeCPU
-        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80
-        for: 5m
+      # Regra para monitorar o alto uso da CPU.
+      - alert:  AutoCargaDeCPU
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 1
+        for: 1m
         labels:
           severity: warning
         annotations:
-          summary: "Uso alto de CPU (instância {{ $labels.instance }})"
-          description: "O uso da CPU está em {{ $value | printf \"%.2f\" }}% por mais de 5 minutos."
+          summary: "Uso alto de Cpu (instância{{ $labels.instance }})"
+          description: "🔥 O uso da CPU está em {{ $value | printf \"%.0f\" }}% há pelo menos 1 minuto."
 
-      - alert: ConsumoAltoDeMemoria
-        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 20
-        for: 2m
+      # Regra para monitorar o alto consumo de memória RAM.
+      - alert:  ConsumoALtodeMemoria
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 90
+        for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Memória RAM baixa (instância {{ $labels.instance }})"
-          description: "Apenas {{ $value | printf \"%.2f\" }}% de memória RAM está disponível."
+         summary: "Memória RAM baixa (instância{{ $labels.instance }})"
+         description: "O consumo de memória RAM atingiu {{ $value | printf \"%.0f\" }}%."
 
-      - alert: PoucoEspacoEmDisco
-        expr: (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+      # Regra para monitorar o baixo espaço livre em disco.
+      - alert:  PoucoEspaçoEmDisco
+        expr: (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 90
         for: 2m
         labels:
-          severity: critical
+         severity: critical
         annotations:
-          summary: "Pouco espaço em disco (instância {{ $labels.instance }})"
-          description: "O disco raiz (/) tem apenas {{ $value | printf \"%.2f\" }}% de espaço livre."
+         summary: "Pouco espaço em disco (instância{{ $labels.instance }})"
+         description: "💾 O disco raiz (/) está com {{ $value | printf \"%.0f\" }}% de uso."
 
-O arquivo prometheus.yml é atualizado para carregar estas regras e para apontar para o Alertmanager.
+(O arquivo prometheus.yml é atualizado para carregar estas regras e para apontar para o Alertmanager.)
 
 3. Resumo das Vantagens do Uso de Regras:
 
@@ -243,6 +294,12 @@ receivers:
           *Alerta:* `{{ .CommonAnnotations.summary }}`
           *Gravidade:* `{{ .CommonLabels.severity }}`
           *Descrição:* `{{ .CommonAnnotations.description }}`
+
+3. Resultado Final: Alertas no Telegram
+
+Com a stack configurada, o Alertmanager envia notificações detalhadas diretamente para o Telegram, informando sobre o status do servidor em tempo real.
+![Telegram-Prometheus](docs/imagens/imagens_telegran/Telegram_Prometheus.jpeg)
+![Telegram-script](docs/imagens/imagens_telegran/Telegram_scrip.jpeg)
 
 🛠️ Próximos Passos
 [x] Monitoramento via Script Bash
