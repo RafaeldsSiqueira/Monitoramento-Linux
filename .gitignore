@@ -1,0 +1,233 @@
+# =============================================================================
+# .GITIGNORE - SISTEMA DE MONITORAMENTO LINUX
+# =============================================================================
+# Este arquivo define quais arquivos e diretórios NÃO devem ser versionados
+# Autor: Sistema de Monitoramento Linux
+# Data: $(date +%Y-%m-%d)
+# =============================================================================
+
+# =============================================================================
+# 🔐 ARQUIVOS SENSÍVEIS E CONFIGURAÇÕES
+# =============================================================================
+
+# Arquivo de variáveis de ambiente (contém chaves API e senhas)
+.env
+.env.local
+.env.production
+.env.staging
+
+# Arquivos de configuração com dados sensíveis
+secrets/
+**/secrets/
+**/secrets/*
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Tokens e chaves de API
+*_token
+*_key
+*_secret
+telegram_bot_token
+google_api_key
+openai_api_key
+
+# =============================================================================
+# 🐳 DOCKER E CONTAINERS
+# =============================================================================
+
+# Volumes de dados do Docker
+data/
+**/data/
+Prometheus/data/
+Alertmanager/data/
+Grafana/data/
+
+# Logs do Docker
+*.log
+logs/
+**/logs/
+
+# Arquivos temporários do Docker
+.dockerignore
+docker-compose.override.yml
+
+# =============================================================================
+# 📊 PROMETHEUS E MÉTRICAS
+# =============================================================================
+
+# Dados do Prometheus
+Prometheus/data/
+Prometheus/chunks/
+Prometheus/wal/
+Prometheus/queries.active
+Prometheus/tombstones
+
+# Dados do Alertmanager
+Alertmanager/data/
+Alertmanager/nflog/
+Alertmanager/silences/
+
+# =============================================================================
+# 🐍 PYTHON
+# =============================================================================
+
+# Bytecode Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribuição/Pacotes Python
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Ambientes virtuais
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# =============================================================================
+# 🔧 SISTEMA E EDITORES
+# =============================================================================
+
+# Arquivos do sistema
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editores de código
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# =============================================================================
+# 📁 DIRETÓRIOS ESPECÍFICOS DO PROJETO
+# =============================================================================
+
+# Diretórios de backup
+backup/
+backups/
+
+# Arquivos de teste temporários
+test_*.log
+test_results/
+coverage/
+
+# Arquivos de configuração local
+config.local.yml
+*.local.yml
+*.local.yaml
+
+# =============================================================================
+# 🚀 DEPLOYMENT E CI/CD
+# =============================================================================
+
+# Arquivos de deployment
+deploy/
+deployment/
+*.deploy
+
+# Arquivos de CI/CD
+.github/workflows/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# =============================================================================
+# 📊 MONITORAMENTO E LOGS
+# =============================================================================
+
+# Logs de aplicação
+app.log
+application.log
+error.log
+access.log
+
+# Métricas e dados de monitoramento
+metrics/
+monitoring_data/
+
+# =============================================================================
+# 🔍 ARQUIVOS DE PESQUISA E INDEXAÇÃO
+# =============================================================================
+
+# Arquivos de busca
+.searchindex
+.searchindex.*
+
+# =============================================================================
+# 📋 EXEMPLOS E TEMPLATES
+# =============================================================================
+
+# Arquivos de exemplo (opcional - descomente se quiser ignorar)
+# *.example
+# env.example
+
+# IMPORTANTE: NÃO ignore o arquivo de exemplo
+!env.example
+
+# =============================================================================
+# 🚫 ARQUIVOS ESPECÍFICOS DO PROJETO
+# =============================================================================
+
+# Arquivos específicos que não devem ser versionados
+node_modules/
+package-lock.json
+yarn.lock
+
+# Arquivos de configuração local
+local_config/
+local_settings/
+
+# =============================================================================
+# ✅ ARQUIVOS QUE DEVEM SER VERSIONADOS (NÃO IGNORAR)
+# =============================================================================
+# !.env.example
+# !env.example
+# !docker-compose.yml
+# !requirements.txt
+# !setup.sh
+# !README.md
+# !docs/
+# !tests/
+# !Prometheus/prometheus.yml
+# !Prometheus/regras.yml
+# !Grafana/provisioning/
+# !Alertmanager/alertmanager.yml

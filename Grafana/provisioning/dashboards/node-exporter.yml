@@ -1,0 +1,15 @@
+# Configuration file version
+apiVersion: 1
+
+providers:
+  # Node Exporter Dashboards
+  - name: 'Node Exporter'
+    orgId: 1
+    folder: 'Node Exporter'
+    folderUid: 'node-exporter'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards 
