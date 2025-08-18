@@ -1,315 +1,315 @@
-📊 Monitoramento de Servidor Linux
-Este projeto demonstra a criação e evolução de uma solução de monitoramento para servidores Linux. O projeto começa com um script Bash simples para alertas básicos e evolui para uma stack completa e profissional utilizando Prometheus, Alertmanager e Grafana.
-
-Stack de Tecnologias
-Scripting: Bash
-
-Coleta de Métricas: Prometheus, Node Exporter
-
-Alertas: Alertmanager
-
-Notificações: Telegram
-
-Visualização: Grafana (em desenvolvimento)
-
-Agendamento (v1): Cron
-
-🚀 Como Rodar (Versão Recomendada: Prometheus Stack)
-A forma recomendada de executar este projeto é utilizando a stack completa. As instruções detalhadas de instalação e configuração estão na seção "Evolução do Projeto".
-
-Pré-requisitos: Servidor Linux, acesso sudo.
-
-Instale os Componentes: Siga as Fases 1, 2, 3 e 4 da seção de evolução para instalar e configurar o Node Exporter, Prometheus e Alertmanager.
-
-Execute os Serviços: Inicie os serviços em terminais separados para a operação interativa.
-
-sudo -u node_exporter /usr/local/bin/node_exporter
-
-./prometheus --config.file=prometheus.yml
-
-./alertmanager --config.file=alertmanager.yml
-
-Acesse as Interfaces:
-
-Prometheus: http://IP_DO_SERVIDOR:9090
-
-Alertmanager: http://IP_DO_SERVIDOR:9093
-
-📖 A Evolução do Projeto
-Esta seção documenta a jornada do projeto, desde a solução inicial até a arquitetura final.
-
-Fase Inicial (v1): Monitoramento com Script Bash
-A primeira versão do projeto consistiu em um script Bash (monitoramento.sh) para realizar checagens básicas e enviar alertas via Telegram.
-
-Funcionalidades:
-
-Monitoramento de Serviços: Verifica o status de serviços essenciais, configuráveis na variável SERVICOS=("nginx" "mysql") dentro do monitoramento.sh. Se um serviço listado parar, falhar ou for reiniciado, um alerta é imediatamente disparado para o Telegram.
-
-Medição de Recursos: Acompanha o uso de CPU, Memória e Disco.
-
-Geração de Logs: Cria um arquivo de log para registrar todos os eventos de alerta e a execução do script. O caminho do log é configurável através da variável LOG.
-
-Envio de Alertas: Utiliza um segundo script (bot_telegram.sh) para enviar as notificações.
-
-Execução: Agendada via cron para rodar periodicamente.
-
-Limitações: Sem dados históricos, alertas "barulhentos" para picos rápidos, configuração fixa no código.
-
-Estrutura do Projeto (v1)
-
-monitoramento-linux/
-├── monitoramento.sh        # Script principal
-├── bot_telegram.sh         # Script que envia mensagens para o Telegram
-├── .env                    # Arquivo com variáveis TOKEN e CHAT_ID
-└── README.md
-
-Como Usar (v1)
-
-1. Dê permissão de execução:
-
-chmod +x monitoramento.sh
-chmod +x bot_telegram.sh
-
-2. Configure o .env com as variáveis BOT_TOKEN e CHAT_ID. O script bot_telegram.sh foi configurado para ler este arquivo de forma segura.
-
-3. Crie o diretório de Logs: O script precisa de um local para armazenar os logs. Antes de executar, certifique-se de que o diretório especificado na variável LOG do monitoramento.sh exista. Por exemplo, se LOG="/home/rafael/logs/monitoramento.log", crie a pasta logs:
-
-mkdir -p /home/rafael/logs
-
-4. Execução automática com cron (exemplo para cada 10 minutos):
-
-Para que o script rode de forma autônoma e contínua, ele pode ser adicionado ao crontab do sistema.
-
-# Abra o editor do crontab
-sudo crontab -e
-
-# Adicione a seguinte linha no final do arquivo para executar a cada 10 minutos
-*/10 * * * * /caminho/completo/para/monitoramento.sh
-
-Evolução para a Stack Profissional (v2)
-Para superar as limitações do script, o projeto evoluiu para uma stack de monitoramento padrão da indústria.
-
-Fase 1: Coleta de Dados com Node Exporter
-O Node Exporter atua como um "sensor" no servidor, expondo centenas de métricas (CPU, memória, disco, etc.) de forma contínua para o Prometheus coletar.
-
-1. Instalação:
-
-# Baixar e descompactar o Node Exporter
-wget https://github.com/prometheus/node_exporter/releases/download/v1.8.1/node_exporter-1.8.1.linux-amd64.tar.gz
-tar xvfz node_exporter-1.8.1.linux-amd64.tar.gz
-sudo mv node_exporter-1.8.1.linux-amd64/node_exporter /usr/local/bin/
-
-2. Criação de Usuário de Serviço (Segurança):
-Um usuário de sistema dedicado é criado para rodar o processo com privilégios mínimos.
-
-sudo useradd --system --no-create-home --shell /bin/false node_exporter
-sudo chown node_exporter:node_exporter /usr/local/bin/node_exporter
-
-3. Verificação:
-O Node Exporter expõe as métricas na porta 9100.
-
-# Em um terminal, verifique as métricas
-curl http://localhost:9100/metrics
-
-Fase 2: Armazenamento e Processamento com Prometheus
-O Prometheus Server é o "cérebro" da operação. Sua função é coletar (fazer scrape) as métricas e armazená-las para consultas e análises futuras.
-
-Armazenamento Local com TSDB
-
-Diferente de sistemas que exigem um banco de dados externo, o Prometheus possui um banco de dados de séries temporais (TSDB) altamente eficiente, embutido e que armazena os dados localmente no disco do servidor. Ele é otimizado para lidar com o grande volume de dados de métricas com carimbo de tempo. Por padrão, o Prometheus retém os dados por 15 dias, o que o torna ideal para análise de tendências recentes e depuração de incidentes, justificando a ideia de ser um armazenamento "temporário" para dados de curto e médio prazo.
-
-1. Instalação:
-
-# Baixar e descompactar o Prometheus
-wget https://github.com/prometheus/prometheus/releases/download/v2.53.0/prometheus-2.53.0.linux-amd64.tar.gz
-tar xvfz prometheus-2.53.0.linux-amd64.tar.gz
-# A pasta criada será usada para a execução interativa.
-
-2. Configuração (prometheus.yml):
-Este arquivo define o que o Prometheus deve monitorar, onde encontrar as regras de alerta e para qual Alertmanager enviar as notificações.
-
-global:
-  scrape_interval: 15s
-
-# Carrega os arquivos de regras de alerta.
-rule_files:
-  - "regras.yml"
-
-# Configuração para se conectar ao Alertmanager.
-alerting:
-  alertmanagers:
-    - static_configs:
-      - targets: ['localhost:9093']
-
-# Configuração dos alvos a serem monitorados.
-scrape_configs:
-  - job_name: "prometheus"
-    static_configs:
-      - targets: ["localhost:9090"]
-
-  - job_name: "node_exporter"
-    static_configs:
-      - targets: ["localhost:9100"]
-
-3. Visualizando as Métricas Coletadas
-
-Na interface do Prometheus (Gráfico), é possível consultar e visualizar em tempo real qualquer uma das centenas de métricas coletadas pelo Node Exporter, provando que a coleta de dados está funcionando corretamente.
-
-![Gráfico de CPU no Prometheus](docs/imagens/Graficos_Prometheus/prometheus-grafico-cpu.png)
-
-![Gráfico de Memória Ativa](docs/imagens/Graficos_Prometheus/prometheus-grafico-memoria.png)
-
-![Gráfico de Disco no Prometheus](docs/imagens/Graficos_Prometheus/prometheus-grafico-disco.png)
-
-4. Escalando o Monitoramento para Múltiplos Servidores
-
-Uma das grandes vantagens do Prometheus é a capacidade de centralizar o monitoramento de múltiplos servidores. Para isso, basta adicionar novos alvos (targets) ao job do node_exporter.
-
-Pré-requisito: O Node Exporter deve estar instalado e em execução em cada novo servidor que você deseja monitorar.
-
-Exemplo de configuração no prometheus.yml:
-
-Basta adicionar o endereço IP e a porta de cada novo servidor à lista targets.
-
-scrape_configs:
-  # ... (outros jobs)
-
-  - job_name: "node_exporter"
-    static_configs:
-      - targets:
-          - "IP_DO_SERVIDOR_1:9100" # Servidor local ou primeiro servidor
-          - "IP_DO_SERVIDOR_2:9100" # Servidor de banco de dados
-          - "IP_DO_SERVIDOR_3:9100" # Servidor web
-
-Após reiniciar o Prometheus, ele começará a coletar métricas de todos os servidores listados.
-
-Fase 3: Definição de Alertas (Regras)
-Nesta fase, ensinamos o Prometheus a ser proativo. A base da lógica de monitoramento (verificar CPU, RAM e disco) é a mesma do script Bash, mas agora é implementada de forma muito mais poderosa e resiliente através de regras de alerta, definidas em um arquivo regras.yml.
-
-1. Entendendo a Estrutura das Regras
-
-Cada regra no arquivo é composta por chaves que trazem vantagens significativas sobre um simples if/then:
-
-expr: A expressão em linguagem PromQL que define a condição do alerta. É o "coração" da regra.
-
-for: 5m: Esta é uma das maiores vantagens. O Prometheus só irá disparar o alerta se a condição em expr for continuamente verdadeira por 5 minutos. Isso evita alarmes falsos para picos de uso rápidos e momentâneos, um problema comum em scripts simples.
-
-labels: Permite adicionar etiquetas customizadas, como a severidade (severity: critical), que podem ser usadas pelo Alertmanager para rotear notificações para diferentes canais.
-
-annotations: Onde definimos a mensagem do alerta.
-
-summary: Um título curto para o alerta.
-
-description: O corpo da mensagem. Note o uso de {{ $value | printf "%.2f" }}: isso permite que a mensagem seja dinâmica, incluindo o valor exato que causou o disparo do alerta, fornecendo um contexto muito mais rico.
-
-2. Arquivo de Regras (regras.yml)
-
-groups:
-  - name: AlertaServidor
-    rules:
-      # Regra para monitorar o alto uso da CPU.
-      - alert:  AutoCargaDeCPU
-        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 1
-        for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Uso alto de Cpu (instância{{ $labels.instance }})"
-          description: "🔥 O uso da CPU está em {{ $value | printf \"%.0f\" }}% há pelo menos 1 minuto."
-
-      # Regra para monitorar o alto consumo de memória RAM.
-      - alert:  ConsumoALtodeMemoria
-        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 90
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-         summary: "Memória RAM baixa (instância{{ $labels.instance }})"
-         description: "O consumo de memória RAM atingiu {{ $value | printf \"%.0f\" }}%."
-
-      # Regra para monitorar o baixo espaço livre em disco.
-      - alert:  PoucoEspaçoEmDisco
-        expr: (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 90
-        for: 2m
-        labels:
-         severity: critical
-        annotations:
-         summary: "Pouco espaço em disco (instância{{ $labels.instance }})"
-         description: "💾 O disco raiz (/) está com {{ $value | printf \"%.0f\" }}% de uso."
-
-(O arquivo prometheus.yml é atualizado para carregar estas regras e para apontar para o Alertmanager.)
-
-3. Resumo das Vantagens do Uso de Regras:
-
-Resiliência a Falsos Positivos: O uso do for torna os alertas mais confiáveis.
-
-Contexto Rico: As annotations permitem mensagens dinâmicas com dados precisos do momento do alerta.
-
-Consistência: A lógica de alerta é centralizada, declarativa e fácil de versionar com Git.
-
-Fase 4: Notificação Inteligente com Alertmanager
-O Alertmanager recebe os alertas do Prometheus e os encaminha de forma inteligente para canais como o Telegram.
-
-1. Instalação e Configuração Segura:
-
-# Baixar e instalar o Alertmanager
-wget https://github.com/prometheus/alertmanager/releases/download/v0.27.0/alertmanager-0.27.0.linux-amd64.tar.gz
-tar xvfz alertmanager-0.27.0.linux-amd64.tar.gz
-
-# Criar arquivo de segredo para o token do Telegram
-sudo mkdir -p /etc/prometheus_alerta/secrets
-
-# Método: Usando um editor de texto (mais simples)
-# 1. Abra o arquivo com um editor como vim
-sudo vim /etc/prometheus_alerta/secrets/telegram_bot_token
-# 2. Cole APENAS o seu token do bot dentro do arquivo, sem espaços ou linhas extras.
-# 3. Salve e saia.
-
-# Após criar o arquivo, defina as permissões corretas para segurança
-sudo chmod 600 /etc/prometheus_alerta/secrets/telegram_bot_token
-
-2. Configuração (alertmanager.yml):
-Este arquivo define como agrupar e para onde enviar os alertas.
-
-route: # Rota padrão: para onde vão todos os alertas.
-  receiver: 'alertas-telegram'
-  # Agrupa os alertas por instância e nome do alerta para evitar spam.
-  group_by: ['instance', 'alertname']
-  # Espera 30s para ver se mais alertas do mesmo grupo chegam antes de enviar.
-  group_wait: 30s
-  # Se um novo alerta do mesmo grupo chegar, espera 5m antes de notificar de novo.
-  group_interval: 5m
-  # Se um alerta não for resolvido, espera 30m para enviar um lembrete.
-  # ATENÇÃO: 30m é um valor baixo, ideal para testes. Em produção, use valores como '4h'.
-  repeat_interval: 30m
-
-receivers:
-  - name: 'alertas-telegram'
-    telegram_configs:
-      - bot_token_file: '/etc/prometheus_alerta/secrets/telegram_bot_token'
-        chat_id: SEU_CHAT_ID_AQUI # Substitua pelo seu ID
-        parse_mode: 'Markdown'
-        message: |
-          *{{ if eq .Status "firing" }}🔥 ALERTA DISPARANDO 🔥{{ else }}✅ ALERTA RESOLVIDO ✅{{ end }}*
-          *Alerta:* `{{ .CommonAnnotations.summary }}`
-          *Gravidade:* `{{ .CommonLabels.severity }}`
-          *Descrição:* `{{ .CommonAnnotations.description }}`
-
-3. Resultado Final: Alertas no Telegram
-
-Com a stack configurada, o Alertmanager envia notificações detalhadas diretamente para o Telegram, informando sobre o status do servidor em tempo real.
-![Telegram-Prometheus](docs/imagens/imagens_telegran/Telegram_Prometheus.jpeg)
-![Telegram-script](docs/imagens/imagens_telegran/Telegram_scrip.jpeg)
-
-🛠️ Próximos Passos
-[x] Monitoramento via Script Bash
-
-[x] Integração com Prometheus e Alertmanager
-
-[ ] Visualização de dados com Grafana
-
-[ ] Containerização da stack com Docker Compose
-
-[ ] Transformar os serviços em systemd para operação permanente.
-
-Feito com 💻 por Rafael – focado em Linux, DevOps e automações.
+# 🚀 Sistema de Monitoramento Linux Inteligente
+
+**Transforme sua infraestrutura em um sistema inteligente e autônomo!**
+
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://docker.com)
+[![Prometheus](https://img.shields.io/badge/Prometheus-v2.47.0-red.svg)](https://prometheus.io)
+[![Grafana](https://img.shields.io/badge/Grafana-v10.2.0-orange.svg)](https://grafana.com)
+[![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## 🌟 **Visão Geral**
+
+Este é um **sistema de monitoramento enterprise-level** que combina as melhores tecnologias de observabilidade com **inteligência artificial** para criar uma solução de monitoramento **autônoma e inteligente**.
+
+### **🚀 Principais Recursos**
+
+- **📊 Monitoramento Completo**: Prometheus + Grafana + Alertmanager
+- **🤖 AI Agent Inteligente**: Integração com Google Gemini para análise avançada
+- **🚀 MCP Server**: Model Context Protocol para acesso em tempo real às métricas
+- **☎️ Monitoramento Asterisk**: Regras específicas para telefonia IP
+- **🔄 Automação n8n**: Workflows inteligentes baseados em alertas
+- **📱 Notificações Multi-canal**: Email, Telegram, Slack, Webhooks
+- **🐳 Containerizado**: Docker Compose para fácil implantação
+- **📈 Escalável**: Suporte a monitoramento distribuído
+
+## 🏗️ **Arquitetura do Sistema**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Node Exporter │    │    Prometheus   │    │   Alertmanager  │
+│   (Métricas)    │───▶│   (TSDB)        │───▶│   (Alertas)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │                       │
+                                ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   MCP Server    │    │     Grafana     │    │      n8n        │
+│   (Protocolo)   │◀───│   (Dashboards)  │    │   (Automação)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │                       │
+                                ▼                       ▼
+                       ┌─────────────────┐    ┌─────────────────┐
+                       │   AI Agent      │    │   Notificações  │
+                       │   (Gemini AI)   │    │   (Multi-canal) │
+                       └─────────────────┘    └─────────────────┘
+```
+
+## 🚀 **Como Executar**
+
+### **📋 Pré-requisitos**
+
+- **Sistema Operacional**: Linux (Ubuntu 20.04+, CentOS 8+, Debian 11+)
+- **Docker**: Versão 20.10+
+- **Docker Compose**: Versão 2.0+
+- **Memória RAM**: Mínimo 4GB (Recomendado 8GB+)
+- **Disco**: Mínimo 20GB livre
+
+### **⚡ Instalação Rápida**
+
+#### **Opção 1: Instalação Completa do Zero**
+```bash
+# Baixar e executar o instalador completo
+curl -fsSL https://raw.githubusercontent.com/seu-usuario/Monitoramento_Linux/main/install_monitoring_system.sh | bash
+```
+
+#### **Opção 2: Setup Manual (Docker já instalado)**
+```bash
+# 1. Clonar o repositório
+git clone https://github.com/seu-usuario/Monitoramento_Linux.git
+cd Monitoramento_Linux
+
+# 2. Configurar variáveis de ambiente
+cp env.example .env
+# Editar .env com suas configurações
+
+# 3. Executar setup
+./setup.sh
+```
+
+### **🔧 Configuração**
+
+#### **📝 Arquivo .env (Obrigatório)**
+```bash
+# API Keys
+GOOGLE_API_KEY=sua_chave_api_gemini
+EMAIL_USERNAME=seu_email@gmail.com
+EMAIL_PASSWORD=sua_senha_do_email
+
+# Emails
+DEFAULT_EMAIL=admin@exemplo.com
+AUDIT_EMAIL=audit@exemplo.com
+
+# Configurações SMTP
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+```
+
+**📖 [Guia Completo de Configuração](docs/GUIA_INSTALACAO.md)**
+
+## 🌐 **Acessos Disponíveis**
+
+| Serviço | Porta | URL | Descrição |
+|---------|-------|-----|-----------|
+| **Grafana** | 3000 | http://localhost:3000 | Dashboards e visualização |
+| **Prometheus** | 9090 | http://localhost:9090 | Métricas e alertas |
+| **Alertmanager** | 9093 | http://localhost:9093 | Gerenciamento de alertas |
+| **AI Agent** | 5000 | http://localhost:5000 | Interface inteligente |
+| **MCP Server** | 8080 | http://localhost:8080 | Protocolo de contexto |
+| **n8n** | 5678 | http://localhost:5678 | Automação de workflows |
+| **Node Exporter** | 9100 | http://localhost:9100 | Métricas do sistema |
+
+**🔑 Credenciais Padrão:**
+- **Grafana**: `admin` / `admin`
+- **n8n**: Criar conta no primeiro acesso
+
+## 📊 **Funcionalidades Principais**
+
+### **🤖 AI Agent Inteligente**
+- **Análise Automática**: Identifica problemas antes que se tornem críticos
+- **Recomendações**: Sugestões baseadas em IA para otimização
+- **Interface Web**: Dashboard interativo para controle total
+- **Integração Gemini**: Análise avançada com Google AI
+
+### **🚀 MCP Server (Model Context Protocol)**
+- **Acesso em Tempo Real**: Métricas instantâneas para o AI Agent
+- **Protocolo Padrão**: Interface padronizada para IA
+- **Performance**: Resposta em milissegundos
+- **Escalabilidade**: Suporte a múltiplas instâncias
+
+### **☎️ Monitoramento Asterisk**
+- **Regras Específicas**: Alertas para telefonia IP
+- **Métricas VoIP**: Qualidade de chamada, peers, troncos
+- **Alertas Inteligentes**: Notificações baseadas em thresholds
+- **Integração Completa**: Prometheus + Alertmanager
+
+### **🔄 Automação n8n**
+- **Workflows Inteligentes**: Automação baseada em alertas
+- **Integração Multi-serviço**: Conecta todos os componentes
+- **Templates Prontos**: Workflows para cenários comuns
+- **Escalabilidade**: Suporte a múltiplos nós
+
+## 📈 **Dashboards e Visualizações**
+
+### **📊 Grafana Dashboards**
+- **Sistema Operacional**: CPU, memória, disco, rede
+- **Serviços**: Status de todos os componentes
+- **Asterisk**: Métricas específicas de telefonia
+- **Customizáveis**: Crie seus próprios dashboards
+
+### **📊 Prometheus Queries**
+- **PromQL Avançado**: Consultas complexas e agregações
+- **Alertas Inteligentes**: Regras baseadas em thresholds
+- **Histórico**: Análise de tendências e padrões
+- **Exportação**: Integração com outros sistemas
+
+## 🚨 **Sistema de Alertas**
+
+### **📋 Regras de Alerta**
+- **Sistema Operacional**: CPU, memória, disco, rede
+- **Serviços**: Prometheus, Grafana, Alertmanager
+- **Asterisk**: Chamadas, peers, troncos, qualidade
+- **AI Agent**: Performance e saúde do sistema
+
+### **🔔 Notificações**
+- **Email**: Alertas detalhados com HTML
+- **Telegram**: Notificações instantâneas
+- **Slack**: Integração com equipes
+- **Webhooks**: Automação personalizada
+
+## 🐳 **Deploy com Docker**
+
+### **📦 Containers Disponíveis**
+```yaml
+services:
+  prometheus:     # Coleta e armazenamento de métricas
+  grafana:        # Visualização e dashboards
+  alertmanager:   # Gerenciamento de alertas
+  node-exporter:  # Métricas do sistema operacional
+  mcp-server:     # Protocolo de contexto para IA
+  ai-agent:       # Agente de inteligência artificial
+  n8n:            # Automação de workflows
+```
+
+### **🚀 Comandos Úteis**
+```bash
+# Iniciar todos os serviços
+docker-compose up -d
+
+# Ver logs em tempo real
+docker-compose logs -f
+
+# Parar todos os serviços
+docker-compose down
+
+# Reconstruir e reiniciar
+docker-compose up -d --build
+
+# Ver status dos serviços
+docker-compose ps
+```
+
+## 🌐 **Monitoramento Distribuído**
+
+### **📡 Instalação em Nós Remotos**
+```bash
+# Script para instalar Node Exporter em servidores remotos
+./install_node_exporter.sh
+
+# Configurar no Prometheus central
+# Adicionar IPs dos servidores remotos no prometheus.yml
+```
+
+### **🏗️ Arquitetura Distribuída**
+- **Servidor Central**: Prometheus + Grafana + Alertmanager
+- **Nós Remotos**: Node Exporter para coleta de métricas
+- **Escalabilidade**: Suporte a centenas de servidores
+- **Redundância**: Configuração de alta disponibilidade
+
+## 🧪 **Testes e Validação**
+
+### **📋 Scripts de Teste**
+```bash
+# Executar todos os testes
+./tests/run_all_tests.sh
+
+# Teste individual
+./tests/test_individual.sh
+
+# Validação rápida
+./tests/quick_test.sh
+```
+
+**📖 [Guia Completo de Testes](docs/GUIA_INSTALACAO.md#testes)**
+
+## 📚 **Documentação Completa**
+
+- **[📖 Visão Geral](docs/README.md)** - Objetivos e vantagens do projeto
+- **[🔧 Guia de Instalação](docs/GUIA_INSTALACAO.md)** - Instalação, configuração e testes
+- **[⚙️ Documentação Técnica](docs/DOCUMENTACAO_TECNICA.md)** - Arquitetura, APIs e configurações avançadas
+
+## 🚀 **Vantagens do Sistema**
+
+### **💡 Inteligência Artificial**
+- **Análise Proativa**: Identifica problemas antes que ocorram
+- **Otimização Automática**: Sugestões para melhorar performance
+- **Redução de Falsos Positivos**: IA filtra alertas irrelevantes
+- **Insights Valiosos**: Análise de padrões e tendências
+
+### **🔧 Tecnologia Enterprise**
+- **Prometheus**: Padrão da indústria para monitoramento
+- **Grafana**: Visualização profissional e customizável
+- **Docker**: Implantação consistente e escalável
+- **MCP**: Protocolo padrão para IA
+
+### **📈 Escalabilidade**
+- **Monitoramento Distribuído**: Centenas de servidores
+- **Arquitetura Modular**: Adicione novos componentes facilmente
+- **Performance**: Otimizado para grandes volumes de dados
+- **Flexibilidade**: Adapte às suas necessidades
+
+### **🛡️ Segurança e Confiabilidade**
+- **Usuários Não-root**: Containers seguros
+- **Secrets Management**: Gerenciamento seguro de credenciais
+- **Logs Estruturados**: Auditoria completa
+- **Backup Automático**: Preservação de dados
+
+## 🤝 **Contribuição**
+
+### **📝 Como Contribuir**
+1. **Fork** o projeto
+2. **Crie** uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. **Commit** suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** para a branch (`git push origin feature/AmazingFeature`)
+5. **Abra** um Pull Request
+
+### **🐛 Reportar Bugs**
+- Use o sistema de [Issues](https://github.com/seu-usuario/Monitoramento_Linux/issues)
+- Inclua logs, screenshots e passos para reproduzir
+- Descreva o comportamento esperado vs. atual
+
+## 📄 **Licença**
+
+Este projeto está licenciado sob a **Licença MIT** - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## 🙏 **Agradecimentos**
+
+- **Prometheus Community** - Sistema de monitoramento
+- **Grafana Labs** - Visualização de dados
+- **Google Gemini** - Inteligência artificial
+- **n8n** - Automação de workflows
+- **Docker** - Containerização
+
+## 📞 **Suporte**
+
+- **📧 Email**: suporte@exemplo.com
+- **💬 Discord**: [Servidor da Comunidade](https://discord.gg/exemplo)
+- **📖 Wiki**: [Documentação Completa](docs/)
+- **🐛 Issues**: [GitHub Issues](https://github.com/seu-usuario/Monitoramento_Linux/issues)
+
+---
+
+**🚀 Transforme sua infraestrutura em um sistema inteligente e autônomo!**
+
+**Feito com 💻 por Rafael** - Focado em Linux, DevOps, IA e automações inteligentes.
+
+---
+
+<div align="center">
+
+**⭐ Se este projeto te ajudou, considere dar uma estrela! ⭐**
+
+[![GitHub stars](https://img.shields.io/github/stars/seu-usuario/Monitoramento_Linux?style=social)](https://github.com/seu-usuario/Monitoramento_Linux)
+[![GitHub forks](https://img.shields.io/github/forks/seu-usuario/Monitoramento_Linux?style=social)](https://github.com/seu-usuario/Monitoramento_Linux)
+[![GitHub issues](https://img.shields.io/github/issues/seu-usuario/Monitoramento_Linux)](https://github.com/seu-usuario/Monitoramento_Linux/issues)
+
+</div>

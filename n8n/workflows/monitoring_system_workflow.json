@@ -1,0 +1,549 @@
+{
+  "name": "Sistema de Monitoramento Inteligente",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook - Alertas",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "alert-webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-mcp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-mcp-trigger",
+      "name": "Webhook - MCP",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 500],
+      "webhookId": "mcp-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "severity-check",
+              "leftValue": "={{ $json.labels.severity }}",
+              "rightValue": "critical",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "severity-filter",
+      "name": "Filtrar Alertas Críticos",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "category-check",
+              "leftValue": "={{ $json.labels.category }}",
+              "rightValue": "asterisk",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "asterisk-filter",
+      "name": "Filtrar Alertas Asterisk",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:8080/analyze",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "mcp-analysis",
+      "name": "Análise MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"mcp_analysis\": $('MCP Analysis').first().json } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-agent-analysis",
+      "name": "Análise AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/asterisk-analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"context\": \"asterisk_monitoring\" } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-asterisk-analysis",
+      "name": "Análise Asterisk AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/webhook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"analysis\": $('AI Agent Analysis').first().json, \"mcp_data\": $('MCP Analysis').first().json } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "ai-webhook",
+      "name": "Webhook AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "url": "smtp://smtp.gmail.com:587",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"to\": process.env.AUDIT_EMAIL, \"subject\": \"🚨 ALERTA CRÍTICO: {{ $json.labels.alertname }}\", \"body\": \"<h2>🚨 Alerta Crítico Detectado</h2><p><strong>Serviço:</strong> {{ $json.labels.alertname }}</p><p><strong>Instância:</strong> {{ $json.labels.instance }}</p><p><strong>Descrição:</strong> {{ $json.annotations.description }}</p><p><strong>Análise IA:</strong> {{ $('AI Agent Analysis').first().json.analysis }}</p><p><strong>Recomendações:</strong> {{ $('AI Agent Analysis').first().json.recommendations }}</p><p><strong>Timestamp:</strong> {{ new Date().toISOString() }}</p>\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "email-critical",
+      "name": "Email Crítico",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chat_id\": $env.TELEGRAM_CHAT_ID, \"text\": \"🚨 ALERTA ASTERISK\\n\\n⚠️ {{ $json.labels.alertname }}\\n📞 Instância: {{ $json.labels.instance }}\\n📝 {{ $json.annotations.description }}\\n\\n🤖 Análise IA:\\n{{ $('AI Asterisk Analysis').first().json.analysis }}\\n\\n⏰ {{ new Date().toLocaleString('pt-BR') }}\", \"parse_mode\": \"HTML\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "telegram-asterisk",
+      "name": "Telegram Asterisk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ 'up{job=\"' + $json.labels.job + '\"}' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "prometheus-status",
+      "name": "Verificar Status Prometheus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:8080/metrics",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "mcp-metrics",
+      "name": "Métricas MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/metrics",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "ai-metrics",
+      "name": "Métricas AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.data.result[0].value[1] }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "service-status-check",
+      "name": "Verificar Status Serviço",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1340, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/restart-service",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"service\": $json.labels.job, \"reason\": \"Service down detected\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "restart-service",
+      "name": "Reiniciar Serviço",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/log-action",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"action\": \"service_restart\", \"service\": $json.labels.job, \"timestamp\": new Date().toISOString(), \"user\": \"n8n_workflow\" } }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "log-action",
+      "name": "Logar Ação",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/backup",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"type\": \"emergency_backup\", \"reason\": \"Critical alert detected\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "emergency-backup",
+      "name": "Backup de Emergência",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/notify-team",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"priority\": \"high\", \"channels\": [\"email\", \"telegram\", \"slack\"], \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "notify-team",
+      "name": "Notificar Equipe",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/create-ticket",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"title\": \"Alerta Crítico: {{ $json.labels.alertname }}\", \"description\": \"{{ $json.annotations.description }}\\n\\nAnálise IA: {{ $('AI Agent Analysis').first().json.analysis }}\", \"priority\": \"high\", \"category\": \"monitoring\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "create-ticket",
+      "name": "Criar Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Alertas": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Alertas Críticos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - MCP": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Alertas Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Alertas Críticos": {
+      "main": [
+        [
+          {
+            "node": "Análise MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Alertas Asterisk": {
+      "main": [
+        [
+          {
+            "node": "Análise Asterisk AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise MCP": {
+      "main": [
+        [
+          {
+            "node": "Análise AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Webhook AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise Asterisk AI": {
+      "main": [
+        [
+          {
+            "node": "Telegram Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Email Crítico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Crítico": {
+      "main": [
+        [
+          {
+            "node": "Backup de Emergência",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Backup de Emergência": {
+      "main": [
+        [
+          {
+            "node": "Notificar Equipe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Equipe": {
+      "main": [
+        [
+          {
+            "node": "Criar Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Status Prometheus": {
+      "main": [
+        [
+          {
+            "node": "Métricas MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Métricas MCP": {
+      "main": [
+        [
+          {
+            "node": "Métricas AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Métricas AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Verificar Status Serviço",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Status Serviço": {
+      "main": [
+        [
+          {
+            "node": "Reiniciar Serviço",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reiniciar Serviço": {
+      "main": [
+        [
+          {
+            "node": "Logar Ação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "monitoring",
+      "name": "monitoring"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "ai",
+      "name": "ai"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "automation",
+      "name": "automation"
+    }
+  ],
+  "triggerCount": 2,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent - Sistema de Monitoramento</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.warning { background: rgba(255, 193, 7, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Agent - Sistema de Monitoramento Inteligente</h1>
+            <p>Sistema de monitoramento com análise inteligente e automação</p>
+        </div>
+
+        <div class="card">
+            <h2>🚀 Ações Rápidas</h2>
+            <button class="button" onclick="analyzeSystem()">Analisar Sistema</button>
+            <button class="button" onclick="getMetrics()">Obter Métricas</button>
+            <button class="button" onclick="checkHealth()">Verificar Saúde</button>
+            <a href="/approval" class="button">Interface de Aprovação</a>
+        </div>
+
+        <div class="card">
+            <h2>📊 Status do Sistema</h2>
+            <div id="systemStatus">Carregando...</div>
+        </div>
+
+        <div class="card">
+            <h2>🔍 Análise Inteligente</h2>
+            <div id="analysisResults">Clique em "Analisar Sistema" para começar</div>
+        </div>
+
+        <div class="card">
+            <h2>📈 Métricas em Tempo Real</h2>
+            <div id="metricsDisplay">Clique em "Obter Métricas" para visualizar</div>
+        </div>
+    </div>
+
+    <script>
+        // Função para analisar o sistema
+        async function analyzeSystem() {
+            try {
+                const response = await fetch('/analyze');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayAnalysis(data);
+                } else {
+                    document.getElementById('analysisResults').innerHTML = 
+                        `<div class="status error">Erro: ${data.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('analysisResults').innerHTML = 
+                    `<div class="status error">Erro de conexão: ${error.message}</div>`;
+            }
+        }
+
+        // Função para obter métricas
+        async function getMetrics() {
+            try {
+                const response = await fetch('/metrics?metric=up');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayMetrics(data);
+                } else {
+                    document.getElementById('metricsDisplay').innerHTML = 
+                        `<div class="status error">Erro: ${data.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('metricsDisplay').innerHTML = 
+                    `<div class="status error">Erro de conexão: ${error.message}</div>`;
+            }
+        }
+
+        // Função para verificar saúde
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                document.getElementById('systemStatus').innerHTML = `
+                    <div class="status success">
+                        <strong>✅ Sistema Saudável</strong><br>
+                        Serviço: ${data.service}<br>
+                        Timestamp: ${new Date(data.timestamp).toLocaleString()}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('systemStatus').innerHTML = 
+                    `<div class="status error">❌ Sistema não está respondendo</div>`;
+            }
+        }
+
+        // Função para exibir análise
+        function displayAnalysis(data) {
+            const analysisDiv = document.getElementById('analysisResults');
+            
+            let html = '<div class="metrics">';
+            
+            // Métricas do sistema
+            if (data.system_metrics) {
+                html += '<div class="metric-card">';
+                html += '<h3>📊 Métricas do Sistema</h3>';
+                for (const [key, value] of Object.entries(data.system_metrics)) {
+                    html += `<p><strong>${key}:</strong> ${value}%</p>`;
+                }
+                html += '</div>';
+            }
+            
+            // Análise de saúde
+            if (data.health_analysis) {
+                const health = data.health_analysis;
+                const statusClass = health.overall_health === 'healthy' ? 'success' : 
+                                  health.overall_health === 'warning' ? 'warning' : 'error';
+                
+                html += '<div class="metric-card">';
+                html += `<h3>🏥 Saúde do Sistema</h3>`;
+                html += `<div class="status ${statusClass}">${health.overall_health.toUpperCase()}</div>`;
+                if (health.issues.length > 0) {
+                    html += '<h4>⚠️ Problemas:</h4><ul>';
+                    health.issues.forEach(issue => html += `<li>${issue}</li>`);
+                    html += '</ul>';
+                }
+                html += '</div>';
+            }
+            
+            // Insights da IA
+            if (data.ai_insights) {
+                html += '<div class="metric-card">';
+                html += '<h3>🤖 Análise da IA</h3>';
+                if (typeof data.ai_insights === 'string') {
+                    html += `<p>${data.ai_insights}</p>`;
+                } else {
+                    html += `<p><strong>${data.ai_insights.ai_analysis}</strong></p>`;
+                    if (data.ai_insights.recommendations) {
+                        html += '<h4>💡 Recomendações:</h4><ul>';
+                        data.ai_insights.recommendations.forEach(rec => html += `<li>${rec}</li>`);
+                        html += '</ul>';
+                    }
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            analysisDiv.innerHTML = html;
+        }
+
+        // Função para exibir métricas
+        function displayMetrics(data) {
+            const metricsDiv = document.getElementById('metricsDisplay');
+            
+            if (data.result && data.result.length > 0) {
+                let html = '<div class="metrics">';
+                data.result.forEach(metric => {
+                    html += '<div class="metric-card">';
+                    html += `<h3>📈 ${metric.metric?.__name__ || 'Métrica'}</h3>`;
+                    html += `<p><strong>Valor:</strong> ${metric.value[1]}</p>`;
+                    html += `<p><strong>Timestamp:</strong> ${new Date(metric.value[0] * 1000).toLocaleString()}</p>`;
+                    if (metric.metric) {
+                        html += '<p><strong>Labels:</strong></p><ul>';
+                        for (const [key, value] of Object.entries(metric.metric)) {
+                            if (key !== '__name__') {
+                                html += `<li>${key}: ${value}</li>`;
+                            }
+                        }
+                        html += '</ul>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                metricsDiv.innerHTML = html;
+            } else {
+                metricsDiv.innerHTML = '<div class="status warning">Nenhuma métrica encontrada</div>';
+            }
+        }
+
+        // Verificar saúde ao carregar a página
+        window.onload = function() {
+            checkHealth();
+        };
+    </script>
+</body>
+</html>

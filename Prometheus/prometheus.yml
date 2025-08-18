@@ -1,36 +1,222 @@
+# =============================================================================
+# PROMETHEUS - CONFIGURAÇÃO DE MONITORAMENTO
+# =============================================================================
+# Este arquivo configura o Prometheus para coleta de métricas
+# Autor: Sistema de Monitoramento Linux
+# Data: $(date +%Y-%m-%d)
+# =============================================================================
+
 # Configurações globais
 global:
-  # Define o intervalo de coleta para cada 15 segundos. O padrão é 1 minuto.
+  # Define o intervalo de coleta para cada 15 segundos
   scrape_interval: 15s
-  # Avalia as regras de alerta a cada 15 segundos. O padrão é 1 minuto.
+  
+  # Avalia as regras de alerta a cada 15 segundos
   evaluation_interval: 15s
+  
+  # Timeout para coleta de métricas
+  scrape_timeout: 10s
 
 # Configuração do Alertmanager
 alerting:
   alertmanagers:
     - static_configs:
-        # Alvo do Alertmanager. 'localhost' é usado para o ambiente local.
+        # Alvo do Alertmanager
         - targets:
             - 'localhost:9093'
 
-# Carrega as regras uma vez e as avalia periodicamente conforme o 'evaluation_interval'.
+# Carrega as regras de alerta
 rule_files:
   - "regras.yml"
-  # - "primeiras_regras.yml"
-  # - "segundas_regras.yml"
 
-# Uma configuração de coleta (scrape) contendo os alvos a serem monitorados.
+# Configurações de coleta (scrape)
 scrape_configs:
-  # O nome do job é adicionado como uma label `job=<job_name>` para qualquer métrica coletada.
-
-  # Bloco de configuração para o job "prometheus".
-  # Este job coleta as métricas do próprio servidor Prometheus.
+  # =============================================================================
+  # 📊 PROMETHEUS - MÉTRICAS DO PRÓPRIO SERVIDOR
+  # =============================================================================
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+        labels:
+          instance: "prometheus-server"
+          environment: "producao"
+          service: "prometheus"
 
-  # Bloco de configuração para o job "node_exporter".
-  # Este job coleta as métricas do sistema operacional (CPU, RAM, Disco) do nosso servidor.
-  - job_name: "node_exporter"
+  # =============================================================================
+  # 📡 NODE EXPORTER - MÉTRICAS DO SISTEMA OPERACIONAL
+  # =============================================================================
+  - job_name: "node-exporter"
     static_configs:
       - targets: ["localhost:9100"]
+        labels:
+          instance: "servidor-local"
+          environment: "producao"
+          service: "node-exporter"
+    
+    # Configurações específicas para Node Exporter
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Métricas específicas a serem coletadas
+    metric_relabel_configs:
+      # Filtrar apenas métricas relevantes
+      - source_labels: [__name__]
+        regex: 'node_(cpu|memory|disk|network|load|uname|time)_.*'
+        action: keep
+
+  # =============================================================================
+  # 🚀 MCP SERVER - MODEL CONTEXT PROTOCOL
+  # =============================================================================
+  - job_name: "mcp-server"
+    static_configs:
+      - targets: ["localhost:8080"]
+        labels:
+          instance: "mcp-server"
+          environment: "producao"
+          service: "mcp-server"
+    
+    # Configurações específicas para MCP Server
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Métricas específicas do MCP Server
+    metrics_path: "/metrics"
+
+  # =============================================================================
+  # 🤖 AI AGENT - AGENTE DE INTELIGÊNCIA ARTIFICIAL
+  # =============================================================================
+  - job_name: "ai-agent"
+    static_configs:
+      - targets: ["localhost:5000"]
+        labels:
+          instance: "ai-agent"
+          environment: "producao"
+          service: "ai-agent"
+    
+    # Configurações específicas para AI Agent
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Métricas específicas do AI Agent
+    metrics_path: "/metrics"
+
+  # =============================================================================
+  # 🔄 N8N - AUTOMAÇÃO DE WORKFLOWS
+  # =============================================================================
+  - job_name: "n8n"
+    static_configs:
+      - targets: ["localhost:5678"]
+        labels:
+          instance: "n8n"
+          environment: "producao"
+          service: "n8n"
+    
+    # Configurações específicas para n8n
+    scrape_interval: 30s
+    scrape_timeout: 15s
+
+  # =============================================================================
+  # 📈 GRAFANA - DASHBOARDS E VISUALIZAÇÃO
+  # =============================================================================
+  - job_name: "grafana"
+    static_configs:
+      - targets: ["localhost:3000"]
+        labels:
+          instance: "grafana"
+          environment: "producao"
+          service: "grafana"
+    
+    # Configurações específicas para Grafana
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    
+    # Métricas específicas do Grafana
+    metrics_path: "/metrics"
+
+  # =============================================================================
+  # 🚨 ALERTMANAGER - GERENCIAMENTO DE ALERTAS
+  # =============================================================================
+  - job_name: "alertmanager"
+    static_configs:
+      - targets: ["localhost:9093"]
+        labels:
+          instance: "alertmanager"
+          environment: "producao"
+          service: "alertmanager"
+    
+    # Configurações específicas para Alertmanager
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    
+    # Métricas específicas do Alertmanager
+    metrics_path: "/metrics"
+
+  # =============================================================================
+  # ☎️ ASTERISK - TELEFONIA IP
+  # =============================================================================
+  - job_name: "asterisk"
+    static_configs:
+      - targets: ["localhost:9100"]  # Via Node Exporter com módulo Asterisk
+        labels:
+          instance: "asterisk-server"
+          environment: "producao"
+          service: "asterisk"
+          type: "voip"
+    
+    # Configurações específicas para Asterisk
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Métricas específicas do Asterisk
+    metric_relabel_configs:
+      # Filtrar métricas do Asterisk
+      - source_labels: [__name__]
+        regex: 'asterisk_.*'
+        action: keep
+
+  # =============================================================================
+  # 🌐 SERVIDORES REMOTOS - MONITORAMENTO DISTRIBUÍDO
+  # =============================================================================
+  - job_name: "node-exporter-remoto-1"
+    static_configs:
+      - targets: ["192.168.1.100:9100"]  # Substitua pelo IP real
+        labels:
+          instance: "servidor-remoto-1"
+          environment: "producao"
+          service: "node-exporter"
+          location: "datacenter-1"
+    
+    # Configurações para servidores remotos
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    
+    # Relabeling para métricas remotas
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  - job_name: "node-exporter-remoto-2"
+    static_configs:
+      - targets: ["192.168.1.101:9100"]  # Substitua pelo IP real
+        labels:
+          instance: "servidor-remoto-2"
+          environment: "producao"
+          service: "node-exporter"
+          location: "datacenter-2"
+    
+    # Configurações para servidores remotos
+    scrape_interval: 30s
+    scrape_timeout: 15s
+    
+    # Relabeling para métricas remotas
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+# =============================================================================
+# FIM DA CONFIGURAÇÃO DO PROMETHEUS
+# =============================================================================

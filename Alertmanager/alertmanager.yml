@@ -1,0 +1,162 @@
+# =============================================================================
+# ALERTMANAGER - CONFIGURAÇÃO DE NOTIFICAÇÕES
+# =============================================================================
+# Este arquivo configura como os alertas são enviados
+# Autor: Sistema de Monitoramento Linux
+# Data: $(date +%Y-%m-%d)
+# =============================================================================
+
+global:
+  # Configurações SMTP para envio de emails
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alertmanager@exemplo.com'
+  smtp_auth_username: 'seu_email@gmail.com'
+  smtp_auth_password: 'sua_senha'
+  smtp_require_tls: true
+
+  # Configurações de tempo
+  resolve_timeout: 5m
+
+# Configuração de roteamento de alertas
+route:
+  # Agrupar alertas por nome
+  group_by: ['alertname', 'instance', 'category']
+  
+  # Tempo de espera antes de agrupar
+  group_wait: 10s
+  
+  # Intervalo entre grupos
+  group_interval: 10s
+  
+  # Intervalo de repetição
+  repeat_interval: 1h
+  
+  # Receptor padrão
+  receiver: 'web.hook'
+  
+  # Rotas específicas por categoria
+  routes:
+    # Alertas críticos - enviar imediatamente
+    - match:
+        severity: critical
+      receiver: 'email.critical'
+      group_wait: 0s
+      group_interval: 5s
+      repeat_interval: 30m
+    
+    # Alertas do Asterisk - alta prioridade
+    - match:
+        category: asterisk
+      receiver: 'telegram.asterisk'
+      group_wait: 5s
+      group_interval: 5s
+      repeat_interval: 15m
+    
+    # Alertas do sistema - prioridade média
+    - match:
+        category: sistema
+      receiver: 'email.system'
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+
+# Configuração de inibição (supressão de alertas)
+inhibit_rules:
+  # Se CPU crítico, não alertar sobre memória alta
+  - source_match:
+      severity: 'critical'
+      alertname: 'CPUCritico'
+    target_match:
+      severity: 'warning'
+      alertname: 'MemoriaAlta'
+    equal: ['instance']
+  
+  # Se disco crítico, não alertar sobre outros problemas
+  - source_match:
+      severity: 'critical'
+      alertname: 'DiscoCritico'
+    target_match:
+      severity: 'warning'
+    equal: ['instance']
+
+# Configuração de timeouts
+time_intervals:
+  - name: workdays
+    time_intervals:
+      - weekdays: ['monday:friday']
+        times:
+          - start_time: 09:00
+            end_time: 17:00
+
+# Configuração de receptores
+receivers:
+  # Webhook para n8n e AI Agent
+  - name: 'web.hook'
+    webhook_configs:
+      - url: 'http://localhost:5000/webhook'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+          tls_config:
+            insecure_skip_verify: true
+
+  # Email para alertas críticos
+  - name: 'email.critical'
+    email_configs:
+      - to: 'admin@exemplo.com'
+        send_resolved: true
+        headers:
+          subject: '🚨 ALERTA CRÍTICO - {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>🚨 ALERTA CRÍTICO</h2>
+          <p><strong>Alerta:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Instância:</strong> {{ .GroupLabels.instance }}</p>
+          <p><strong>Descrição:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Valor:</strong> {{ .CommonAnnotations.value }}</p>
+          <p><strong>Hora:</strong> {{ .StartsAt }}</p>
+          <hr>
+          <p><em>Este é um alerta crítico que requer atenção imediata.</em></p>
+
+  # Email para alertas do sistema
+  - name: 'email.system'
+    email_configs:
+      - to: 'admin@exemplo.com'
+        send_resolved: true
+        headers:
+          subject: '⚠️ Alerta do Sistema - {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>⚠️ Alerta do Sistema</h2>
+          <p><strong>Alerta:</strong> {{ .GroupLabels.alertname }}</p>
+          <p><strong>Instância:</strong> {{ .GroupLabels.instance }}</p>
+          <p><strong>Descrição:</strong> {{ .CommonAnnotations.description }}</p>
+          <p><strong>Hora:</strong> {{ .StartsAt }}</p>
+
+  # Telegram para alertas do Asterisk
+  - name: 'telegram.asterisk'
+    webhook_configs:
+      - url: 'http://localhost:5000/telegram/asterisk'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+
+  # Slack para alertas gerais
+  - name: 'slack.general'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#monitoramento'
+        send_resolved: true
+        title: '🚨 {{ .GroupLabels.alertname }}'
+        text: |
+          *Alerta:* {{ .GroupLabels.alertname }}
+          *Instância:* {{ .GroupLabels.instance }}
+          *Descrição:* {{ .CommonAnnotations.description }}
+          *Severidade:* {{ .GroupLabels.severity }}
+
+# Configuração de templates
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+# =============================================================================
+# FIM DA CONFIGURAÇÃO DO ALERTMANAGER
+# =============================================================================
+

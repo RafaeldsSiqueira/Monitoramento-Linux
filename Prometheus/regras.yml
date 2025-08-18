@@ -1,34 +1,338 @@
-#Regras de Monitoramento CPU
+# =============================================================================
+# REGRAS DE MONITORAMENTO - SISTEMA LINUX INTELIGENTE
+# =============================================================================
+# Este arquivo contém todas as regras de alerta para monitoramento
+# Autor: Sistema de Monitoramento Linux
+# Data: $(date +%Y-%m-%d)
+# =============================================================================
 
 groups:
-  - name: AlertaServidor
-    rules: 
-     - alert:  AutoCargaDeCPU
-       expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 1
-       for: 1m
-       labels:
-         severity: warning
-       annotations:
-         summary: "Uso alto de Cpu (instância{{ $labels.instance }})"
-         description: "🔥 O uso da CPU está em {{ $value | printf \"%.0f\" }}% há pelo menos 1 minuto."
+  # =============================================================================
+  # 🖥️ MONITORAMENTO DO SISTEMA OPERACIONAL
+  # =============================================================================
+  - name: SistemaOperacional
+    rules:
+      # CPU - Uso alto de processador
+      - alert: CPUAlto
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: sistema
+        annotations:
+          summary: "Uso alto de CPU (instância {{ $labels.instance }})"
+          description: "🔥 O uso da CPU está em {{ $value | printf \"%.1f\" }}% há pelo menos 5 minutos."
 
-      #Memoria RAM
+      # CPU - Uso crítico de processador
+      - alert: CPUCritico
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: sistema
+        annotations:
+          summary: "CPU em estado crítico (instância {{ $labels.instance }})"
+          description: "🚨 CPU em {{ $value | printf \"%.1f\" }}% - Ação imediata necessária!"
 
-     - alert:  ConsumoALtodeMemoria                                                                                                                                         
-       expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 90
-       for: 1m
-       labels:
-         severity: critical  
-       annotations:
-        summary: "Memória RAM baixa (instância{{ $labels.instance }})"
-        description: "O consumo de memória RAM atingiu {{ $value | printf \"%.0f\" }}%."
+      # Memória - Uso alto de RAM
+      - alert: MemoriaAlta
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: sistema
+        annotations:
+          summary: "Uso alto de memória RAM (instância {{ $labels.instance }})"
+          description: "💾 O uso de memória está em {{ $value | printf \"%.1f\" }}% há pelo menos 5 minutos."
 
-      #Disco
-     - alert:  PoucoEspaçoEmDisco
-       expr: (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 90
-       for: 2m
-       labels:
-        severity: critical  
-       annotations:
-        summary: "Pouco espaço em disco (instância{{ $labels.instance }})"
-        description: "💾 O disco raiz (/) está com {{ $value | printf \"%.0f\" }}% de uso."
+      # Memória - RAM crítica
+      - alert: MemoriaCritica
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: sistema
+        annotations:
+          summary: "Memória RAM crítica (instância {{ $labels.instance }})"
+          description: "🚨 Memória em {{ $value | printf \"%.1f\" }}% - Sistema pode travar!"
+
+      # Disco - Espaço baixo
+      - alert: DiscoBaixo
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: sistema
+        annotations:
+          summary: "Pouco espaço em disco (instância {{ $labels.instance }})"
+          description: "💾 O disco raiz (/) está com {{ $value | printf \"%.1f\" }}% de uso."
+
+      # Disco - Espaço crítico
+      - alert: DiscoCritico
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: sistema
+        annotations:
+          summary: "Disco crítico (instância {{ $labels.instance }})"
+          description: "🚨 Disco em {{ $value | printf \"%.1f\" }}% - Limpeza imediata necessária!"
+
+      # Rede - Interface down
+      - alert: InterfaceRedeDown
+        expr: node_network_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: sistema
+        annotations:
+          summary: "Interface de rede down (instância {{ $labels.instance }})"
+          description: "🌐 Interface {{ $labels.device }} está offline."
+
+      # Sistema - Load average alto
+      - alert: LoadAlto
+        expr: node_load1 > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: sistema
+        annotations:
+          summary: "Load average alto (instância {{ $labels.instance }})"
+          description: "⚡ Load average 1 min: {{ $value | printf \"%.2f\" }}"
+
+  # =============================================================================
+  # ☎️ MONITORAMENTO DO ASTERISK
+  # =============================================================================
+  - name: Asterisk
+    rules:
+      # Asterisk - Serviço offline
+      - alert: AsteriskOffline
+        expr: up{job="asterisk"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: asterisk
+        annotations:
+          summary: "Asterisk offline (instância {{ $labels.instance }})"
+          description: "☎️ Serviço Asterisk não está respondendo."
+
+      # Asterisk - Sem chamadas ativas
+      - alert: AsteriskSemChamadas
+        expr: asterisk_calls_active == 0
+        for: 10m
+        labels:
+          severity: warning
+          category: asterisk
+        annotations:
+          summary: "Asterisk sem chamadas ativas (instância {{ $labels.instance }})"
+          description: "📞 Nenhuma chamada ativa detectada por 10 minutos."
+
+      # Asterisk - Muitas chamadas simultâneas
+      - alert: AsteriskMuitasChamadas
+        expr: asterisk_calls_active > 100
+        for: 5m
+        labels:
+          severity: warning
+          category: asterisk
+        annotations:
+          summary: "Muitas chamadas simultâneas (instância {{ $labels.instance }})"
+          description: "📞 {{ $value }} chamadas ativas simultaneamente."
+
+      # Asterisk - Peer offline
+      - alert: AsteriskPeerOffline
+        expr: asterisk_peer_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: asterisk
+        annotations:
+          summary: "Peer Asterisk offline (instância {{ $labels.instance }})"
+          description: "🔌 Peer {{ $labels.peer }} está offline."
+
+      # Asterisk - Qualidade de chamada baixa
+      - alert: AsteriskQualidadeBaixa
+        expr: asterisk_call_quality < 0.7
+        for: 5m
+        labels:
+          severity: warning
+          category: asterisk
+        annotations:
+          summary: "Qualidade de chamada baixa (instância {{ $labels.instance }})"
+          description: "📞 Qualidade: {{ $value | printf \"%.2f\" }} (mínimo: 0.7)"
+
+      # Asterisk - Tronco com problema
+      - alert: AsteriskTroncoProblema
+        expr: asterisk_trunk_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: asterisk
+        annotations:
+          summary: "Tronco com problema (instância {{ $labels.instance }})"
+          description: "🔌 Tronco {{ $labels.trunk }} está com problema."
+
+  # =============================================================================
+  # 📊 MONITORAMENTO DO PROMETHEUS
+  # =============================================================================
+  - name: Prometheus
+    rules:
+      # Prometheus - Target down
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: prometheus
+        annotations:
+          summary: "Target down (instância {{ $labels.instance }})"
+          description: "📊 Target {{ $labels.job }} não está respondendo."
+
+      # Prometheus - Scrape falhando
+      - alert: PrometheusScrapeFalha
+        expr: rate(scrape_duration_seconds[5m]) > 30
+        for: 5m
+        labels:
+          severity: warning
+          category: prometheus
+        annotations:
+          summary: "Scrape muito lento (instância {{ $labels.instance }})"
+          description: "📊 Scrape duration: {{ $value | printf \"%.2f\" }}s"
+
+  # =============================================================================
+  # 📈 MONITORAMENTO DO GRAFANA
+  # =============================================================================
+  - name: Grafana
+    rules:
+      # Grafana - Serviço offline
+      - alert: GrafanaOffline
+        expr: up{job="grafana"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: grafana
+        annotations:
+          summary: "Grafana offline (instância {{ $labels.instance }})"
+          description: "📈 Serviço Grafana não está respondendo."
+
+      # Grafana - Dashboards não carregando
+      - alert: GrafanaDashboardsProblema
+        expr: grafana_dashboard_load_duration_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: grafana
+        annotations:
+          summary: "Dashboards lentos (instância {{ $labels.instance }})"
+          description: "📈 Tempo de carregamento: {{ $value | printf \"%.2f\" }}s"
+
+  # =============================================================================
+  # 🚨 MONITORAMENTO DO ALERTMANAGER
+  # =============================================================================
+  - name: Alertmanager
+    rules:
+      # Alertmanager - Serviço offline
+      - alert: AlertmanagerOffline
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: alertmanager
+        annotations:
+          summary: "Alertmanager offline (instância {{ $labels.instance }})"
+          description: "🚨 Serviço Alertmanager não está respondendo."
+
+      # Alertmanager - Muitos alertas não enviados
+      - alert: AlertmanagerAlertasNaoEnviados
+        expr: increase(alertmanager_notifications_failed_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: alertmanager
+        annotations:
+          summary: "Muitos alertas falharam (instância {{ $labels.instance }})"
+          description: "🚨 {{ $value }} alertas falharam em 5 minutos."
+
+  # =============================================================================
+  # 🤖 MONITORAMENTO DO AI AGENT
+  # =============================================================================
+  - name: AIAgent
+    rules:
+      # AI Agent - Serviço offline
+      - alert: AIAgentOffline
+        expr: up{job="ai-agent"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: ai-agent
+        annotations:
+          summary: "AI Agent offline (instância {{ $labels.instance }})"
+          description: "🤖 Serviço AI Agent não está respondendo."
+
+      # AI Agent - Tempo de resposta alto
+      - alert: AIAgentLento
+        expr: http_request_duration_seconds{job="ai-agent"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: ai-agent
+        annotations:
+          summary: "AI Agent lento (instância {{ $labels.instance }})"
+          description: "🤖 Tempo de resposta: {{ $value | printf \"%.2f\" }}s"
+
+  # =============================================================================
+  # 🚀 MONITORAMENTO DO MCP SERVER
+  # =============================================================================
+  - name: MCPServer
+    rules:
+      # MCP Server - Serviço offline
+      - alert: MCPServerOffline
+        expr: up{job="mcp-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: mcp-server
+        annotations:
+          summary: "MCP Server offline (instância {{ $labels.instance }})"
+          description: "🚀 Serviço MCP Server não está respondendo."
+
+      # MCP Server - Tempo de resposta alto
+      - alert: MCPServerLento
+        expr: http_request_duration_seconds{job="mcp-server"} > 3
+        for: 5m
+        labels:
+          severity: warning
+          category: mcp-server
+        annotations:
+          summary: "MCP Server lento (instância {{ $labels.instance }})"
+          description: "🚀 Tempo de resposta: {{ $value | printf \"%.2f\" }}s"
+
+  # =============================================================================
+  # 🔄 MONITORAMENTO DO N8N
+  # =============================================================================
+  - name: N8N
+    rules:
+      # n8n - Serviço offline
+      - alert: N8NOffline
+        expr: up{job="n8n"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: n8n
+        annotations:
+          summary: "n8n offline (instância {{ $labels.instance }})"
+          description: "🔄 Serviço n8n não está respondendo."
+
+      # n8n - Workflows falhando
+      - alert: N8NWorkflowsFalhando
+        expr: increase(n8n_workflow_executions_failed_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: n8n
+        annotations:
+          summary: "Muitos workflows falharam (instância {{ $labels.instance }})"
+          description: "🔄 {{ $value }} workflows falharam em 5 minutos."
+
+# =============================================================================
+# FIM DAS REGRAS DE MONITORAMENTO
+# =============================================================================

@@ -1,0 +1,370 @@
+{
+  "name": "Monitoramento de Saúde do Sistema",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Agendamento - 5min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://prometheus:9090/api/v1/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "up"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-prometheus",
+      "name": "Verificar Prometheus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:8080/health",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-mcp",
+      "name": "Verificar MCP Server",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/health",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-ai-agent",
+      "name": "Verificar AI Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://grafana:3000/api/health",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-grafana",
+      "name": "Verificar Grafana",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 900]
+    },
+    {
+      "parameters": {
+        "url": "http://alertmanager:9093/-/healthy",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-alertmanager",
+      "name": "Verificar Alertmanager",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 1100]
+    },
+    {
+      "parameters": {
+        "url": "http://node-exporter:9100/metrics",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "check-node-exporter",
+      "name": "Verificar Node Exporter",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 1300]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:8080/analyze",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "mcp-analysis",
+      "name": "Análise MCP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/system-analysis",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"health_checks\": { \"prometheus\": $('Verificar Prometheus').first().statusCode, \"mcp\": $('Verificar MCP Server').first().statusCode, \"ai_agent\": $('Verificar AI Agent').first().statusCode, \"grafana\": $('Verificar Grafana').first().statusCode, \"alertmanager\": $('Verificar Alertmanager').first().statusCode, \"node_exporter\": $('Verificar Node Exporter').first().statusCode }, \"mcp_analysis\": $('Análise MCP').first().json, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-system-analysis",
+      "name": "Análise Sistema AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "health-check",
+              "leftValue": "={{ $json.health_status }}",
+              "rightValue": "unhealthy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "health-filter",
+      "name": "Filtrar Sistema Não Saudável",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/notify-team",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"type\": \"system_health_alert\", \"status\": \"unhealthy\", \"analysis\": $('Análise Sistema AI').first().json, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "notify-unhealthy",
+      "name": "Notificar Sistema Não Saudável",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/log-health",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"type\": \"health_check\", \"status\": $('Análise Sistema AI').first().json.health_status, \"details\": $('Análise Sistema AI').first().json, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "log-health",
+      "name": "Logar Status de Saúde",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/backup",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"type\": \"health_check_backup\", \"reason\": \"Scheduled health check\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scheduled-backup",
+      "name": "Backup Agendado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/cleanup-logs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"type\": \"log_cleanup\", \"retention_days\": 30, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "cleanup-logs",
+      "name": "Limpeza de Logs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 500]
+    }
+  ],
+  "connections": {
+    "Agendamento - 5min": {
+      "main": [
+        [
+          {
+            "node": "Verificar Prometheus",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar MCP Server",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar AI Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar Grafana",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar Alertmanager",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verificar Node Exporter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Prometheus": {
+      "main": [
+        [
+          {
+            "node": "Análise MCP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise MCP": {
+      "main": [
+        [
+          {
+            "node": "Análise Sistema AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Análise Sistema AI": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Sistema Não Saudável",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Sistema Não Saudável": {
+      "main": [
+        [
+          {
+            "node": "Notificar Sistema Não Saudável",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Logar Status de Saúde",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Sistema Não Saudável": {
+      "main": [
+        [
+          {
+            "node": "Backup Agendado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Logar Status de Saúde": {
+      "main": [
+        [
+          {
+            "node": "Limpeza de Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "health",
+      "name": "health"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "monitoring",
+      "name": "monitoring"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "scheduled",
+      "name": "scheduled"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

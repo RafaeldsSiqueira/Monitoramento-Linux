@@ -1,0 +1,140 @@
+services:
+  # Prometheus - Coleta e armazenamento de métricas
+  prometheus:
+    build: ./Prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./Prometheus/regras.yml:/etc/prometheus/regras.yml
+      - ./Prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # Grafana - Visualização e dashboards
+  grafana:
+    build: ./Grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Grafana/data:/var/lib/grafana
+      - ./Grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # Alertmanager - Gerenciamento de alertas
+  alertmanager:
+    build: ./Alertmanager
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./Alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./Alertmanager/data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # Node Exporter - Métricas do sistema operacional
+  node-exporter:
+    build: ./Node_Exporter
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # MCP Server - Model Context Protocol para IA
+  mcp-server:
+    build: ./mcp-server
+    container_name: mcp-server
+    ports:
+      - "8080:8080"
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - LOG_LEVEL=info
+      - PORT=8080
+    volumes:
+      - ./mcp-server/config:/app/config
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # AI Agent - Agente de inteligência artificial
+  ai-agent:
+    build: ./ai_agent
+    container_name: ai-agent
+    ports:
+      - "5000:5000"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - EMAIL_ADDRESS=${EMAIL_ADDRESS}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - AUDIT_EMAIL=${AUDIT_EMAIL}
+      - MCP_SERVER_URL=http://mcp-server:8080
+    volumes:
+      - ./ai_agent/templates:/app/templates
+    depends_on:
+      - mcp-server
+      - alertmanager
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # n8n - Automação de workflows
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      - WEBHOOK_URL=http://localhost:5000/webhook
+      - AUDIT_EMAIL=${AUDIT_EMAIL}
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+      - N8N_RUNNERS_ENABLED=true
+    volumes:
+      - ./n8n/workflows:/home/node/.n8n
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge

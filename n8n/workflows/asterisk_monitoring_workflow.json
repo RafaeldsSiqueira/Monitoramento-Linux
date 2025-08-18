@@ -1,0 +1,465 @@
+{
+  "name": "Monitoramento Asterisk",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook-asterisk",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "asterisk-webhook",
+      "name": "Webhook Asterisk",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "asterisk-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "asterisk-alert",
+              "leftValue": "={{ $json.labels.alertname }}",
+              "rightValue": "AsteriskOffline",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "asterisk-offline-filter",
+      "name": "Filtrar Asterisk Offline",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "peer-offline",
+              "leftValue": "={{ $json.labels.alertname }}",
+              "rightValue": "AsteriskPeerOffline",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "peer-offline-filter",
+      "name": "Filtrar Peer Offline",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "call-quality",
+              "leftValue": "={{ $json.labels.alertname }}",
+              "rightValue": "AsteriskQualidadeBaixa",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "quality-filter",
+      "name": "Filtrar Qualidade Baixa",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/asterisk-analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"context\": \"asterisk_offline\", \"priority\": \"critical\" } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-asterisk-offline",
+      "name": "AI Asterisk Offline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/asterisk-analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"context\": \"peer_offline\", \"priority\": \"high\" } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-peer-offline",
+      "name": "AI Peer Offline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/asterisk-analyze",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"alert\": $json, \"context\": \"call_quality\", \"priority\": \"medium\" } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ai-quality-issue",
+      "name": "AI Qualidade Chamada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 700]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chat_id\": $env.TELEGRAM_CHAT_ID, \"text\": \"🚨 ASTERISK OFFLINE\\n\\n⚠️ {{ $json.labels.alertname }}\\n📞 Instância: {{ $json.labels.instance }}\\n📝 {{ $json.annotations.description }}\\n\\n🤖 Análise IA:\\n{{ $('AI Asterisk Offline').first().json.analysis }}\\n\\n🔧 Ações:\\n{{ $('AI Asterisk Offline').first().json.recommendations }}\\n\\n⏰ {{ new Date().toLocaleString('pt-BR') }}\", \"parse_mode\": \"HTML\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "telegram-asterisk-offline",
+      "name": "Telegram Asterisk Offline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chat_id\": $env.TELEGRAM_CHAT_ID, \"text\": \"⚠️ PEER OFFLINE\\n\\n📞 Peer: {{ $json.labels.peer }}\\n📞 Instância: {{ $json.labels.instance }}\\n📝 {{ $json.annotations.description }}\\n\\n🤖 Análise IA:\\n{{ $('AI Peer Offline').first().json.analysis }}\\n\\n🔧 Ações:\\n{{ $('AI Peer Offline').first().json.recommendations }}\\n\\n⏰ {{ new Date().toLocaleString('pt-BR') }}\", \"parse_mode\": \"HTML\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "telegram-peer-offline",
+      "name": "Telegram Peer Offline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chat_id\": $env.TELEGRAM_CHAT_ID, \"text\": \"📊 QUALIDADE BAIXA\\n\\n📞 Instância: {{ $json.labels.instance }}\\n📊 Qualidade: {{ $json.annotations.quality }}\\n📝 {{ $json.annotations.description }}\\n\\n🤖 Análise IA:\\n{{ $('AI Qualidade Chamada').first().json.analysis }}\\n\\n🔧 Ações:\\n{{ $('AI Qualidade Chamada').first().json.recommendations }}\\n\\n⏰ {{ new Date().toLocaleString('pt-BR') }}\", \"parse_mode\": \"HTML\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "telegram-quality",
+      "name": "Telegram Qualidade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/restart-asterisk",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"service\": \"asterisk\", \"reason\": \"Asterisk offline detected\", \"instance\": $json.labels.instance, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "restart-asterisk",
+      "name": "Reiniciar Asterisk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/check-peer",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"peer\": $json.labels.peer, \"instance\": $json.labels.instance, \"action\": \"diagnose\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "diagnose-peer",
+      "name": "Diagnosticar Peer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/optimize-call-quality",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"instance\": $json.labels.instance, \"quality_metrics\": $json.annotations, \"action\": \"optimize\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "optimize-quality",
+      "name": "Otimizar Qualidade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 700]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/log-asterisk-action",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"action\": \"asterisk_alert_processed\", \"alert\": $json.labels.alertname, \"instance\": $json.labels.instance, \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "log-asterisk-action",
+      "name": "Logar Ação Asterisk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-agent:5000/create-asterisk-ticket",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"title\": \"Alerta Asterisk: {{ $json.labels.alertname }}\", \"description\": \"{{ $json.annotations.description }}\\n\\nInstância: {{ $json.labels.instance }}\\nAnálise IA: {{ $('AI Asterisk Offline').first().json.analysis }}\", \"priority\": \"high\", \"category\": \"asterisk\", \"timestamp\": new Date().toISOString() } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "create-asterisk-ticket",
+      "name": "Criar Ticket Asterisk",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1340, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Asterisk": {
+      "main": [
+        [
+          {
+            "node": "Filtrar Asterisk Offline",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filtrar Peer Offline",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filtrar Qualidade Baixa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Asterisk Offline": {
+      "main": [
+        [
+          {
+            "node": "AI Asterisk Offline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Peer Offline": {
+      "main": [
+        [
+          {
+            "node": "AI Peer Offline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar Qualidade Baixa": {
+      "main": [
+        [
+          {
+            "node": "AI Qualidade Chamada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Asterisk Offline": {
+      "main": [
+        [
+          {
+            "node": "Telegram Asterisk Offline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Peer Offline": {
+      "main": [
+        [
+          {
+            "node": "Telegram Peer Offline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Qualidade Chamada": {
+      "main": [
+        [
+          {
+            "node": "Telegram Qualidade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Asterisk Offline": {
+      "main": [
+        [
+          {
+            "node": "Reiniciar Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Peer Offline": {
+      "main": [
+        [
+          {
+            "node": "Diagnosticar Peer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Qualidade": {
+      "main": [
+        [
+          {
+            "node": "Otimizar Qualidade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reiniciar Asterisk": {
+      "main": [
+        [
+          {
+            "node": "Logar Ação Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diagnosticar Peer": {
+      "main": [
+        [
+          {
+            "node": "Criar Ticket Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Otimizar Qualidade": {
+      "main": [
+        [
+          {
+            "node": "Logar Ação Asterisk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "asterisk",
+      "name": "asterisk"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "voip",
+      "name": "voip"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "monitoring",
+      "name": "monitoring"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

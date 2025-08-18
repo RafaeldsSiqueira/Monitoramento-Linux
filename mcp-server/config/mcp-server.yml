@@ -1,0 +1,34 @@
+# Configuração do Prometheus MCP Server
+# /home/rafael/Monitoramento_Linux/mcp-server/config/mcp-server.yml
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  workers: 1
+  timeout: 30
+
+endpoints:
+  health: "/health"
+  mcp: "/mcp"
+  status: "/mcp/status"
+  metrics: "/mcp/metrics"
+  query: "/mcp/query"
+
+relevant_metrics:
+  - "node_"
+  - "prometheus_"
+  - "alertmanager_"
+  - "asterisk_"
+
+timeouts:
+  prometheus: 30
+  request: 30
+
+logging:
+  level: "info"
+  format: "json"
+
+health_check:
+  interval: 30
+  timeout: 10
+  retries: 3
